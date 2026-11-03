@@ -47,7 +47,7 @@ Puede ejecutarlos de dos formas:
   ```
   mysql -u root -p < sql/01_ddl.sql
   ```
-  Haga lo mismo con `02` y `03`.
+  Haga lo mismo con `02` y `03`. En Windows, PowerShell no acepta `<`. Use Workbench, o use `cmd`, o entre al cliente con `mysql -u root -p` y escriba `source sql/01_ddl.sql` (y así con los demás).
 
 Para probar los casos de **estructura vacía**, ejecute solo `01` y `02`.
 
@@ -84,15 +84,7 @@ Las tres estructuras están hechas con clases y nodos propios. No usan las colec
 - Modificar un elemento del medio no es una operación propia de una pila. Por eso la pila solo tiene apilar, ver el tope, desapilar y recorrer.
 - Deshacer también escribe en la base de datos. La pila empieza vacía cada vez que se abre el programa.
 
-**Organización del código** (`src/main/java/inventario/`):
-
-| Paquete | Contenido |
-|---|---|
-| `modelo` | Las entidades. |
-| `estructuras` | AVL, lista y pila. |
-| `dao` | El único lugar con SQL. Todo usa `PreparedStatement`. |
-| `servicio` | Une las estructuras con la base de datos y maneja deshacer. |
-| `ui` | El menú de consola. |
+**Paquetes** (`src/main/java/inventario/`): `modelo` (entidades), `estructuras` (AVL, lista y pila), `dao` (el único lugar con SQL, todo con `PreparedStatement`), `servicio` (une estructuras y BD, y maneja deshacer) y `ui` (menú).
 
 ## e. Estado actual
 
