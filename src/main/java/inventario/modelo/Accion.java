@@ -4,13 +4,12 @@ package inventario.modelo;
  * Una acción que se puede deshacer. Se guarda en la pila.
  * Guarda una copia de los datos necesarios para revertirla:
  * - producto: cómo estaba el producto ANTES del cambio (o el producto creado).
- * - movimiento: cómo estaba el movimiento ANTES del cambio (o el movimiento registrado).
+ * - movimiento: el movimiento registrado.
  */
 public class Accion {
 
     public enum Tipo {
-        CREAR_PRODUCTO, MODIFICAR_PRODUCTO, ELIMINAR_PRODUCTO,
-        REGISTRAR_MOVIMIENTO, MODIFICAR_MOVIMIENTO, ELIMINAR_MOVIMIENTO
+        CREAR_PRODUCTO, MODIFICAR_PRODUCTO, ELIMINAR_PRODUCTO, REGISTRAR_MOVIMIENTO
     }
 
     private final Tipo tipo;

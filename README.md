@@ -77,9 +77,9 @@ Las tres estructuras están hechas con clases y nodos propios. No usan las colec
 
 | Estructura | Clase | Entidad o tabla que gestiona | Operaciones (opción del menú) |
 |---|---|---|---|
-| Árbol AVL | `inventario.estructuras.ArbolAVL` | `producto` (la llave es el código) | insertar (1), buscar (2), modificar (3), eliminar (4), recorrido inorden (5 y 6), ver la forma del árbol con su factor de balance (7) |
-| Lista enlazada | `inventario.estructuras.ListaEnlazada<T>` | `movimiento`. También guarda `categoria` y `proveedor`, solo para consulta. | insertar al final en O(1) (8), recorrer en orden cronológico (9), buscar (10), modificar (11), eliminar (12) |
-| Pila | `inventario.estructuras.Pila<T>` | Acciones para deshacer (`modelo.Accion`). Vive solo en memoria. | apilar (en cada cambio), ver el tope y recorrer (14), desapilar = deshacer (13) |
+| Árbol AVL | `inventario.estructuras.ArbolAVL` | `producto` (la llave es el código) | insertar (1), buscar (2), modificar (3), eliminar (4), recorrido inorden (5 y 6) |
+| Lista enlazada | `inventario.estructuras.ListaEnlazada<T>` | `movimiento`. También guarda `categoria` y `proveedor`, solo para consulta. | insertar al final en O(1) (7), recorrer en orden cronológico (8), eliminar (al deshacer un movimiento, 9) |
+| Pila | `inventario.estructuras.Pila<T>` | Acciones para deshacer (`modelo.Accion`). Vive solo en memoria. | apilar (en cada cambio), ver el tope y desapilar = deshacer (9) |
 
 - Modificar un elemento del medio no es una operación propia de una pila. Por eso la pila solo tiene apilar, ver el tope, desapilar y recorrer.
 - Deshacer también escribe en la base de datos. La pila empieza vacía cada vez que se abre el programa.
@@ -98,7 +98,7 @@ Las tres estructuras están hechas con clases y nodos propios. No usan las colec
   - no se puede eliminar un producto que tiene movimientos (el programa lo explica),
   - si se escribe algo que no es un número, el programa lo vuelve a pedir.
 - **Alerta de existencia mínima** al iniciar, después de cada movimiento y en la opción 6.
-- **Deshacer** funciona para los 6 tipos de acción. Se probó que al deshacer todo, la base de datos queda idéntica a como estaba.
+- **Deshacer** funciona para los 4 tipos de acción (crear, modificar y eliminar producto, y registrar movimiento). Se probó que al deshacer todo, la base de datos queda idéntica a como estaba.
 
 **Falta o limitaciones conocidas**
 - **Categorías y proveedores** se cargan solo desde el script; no se editan desde el menú.

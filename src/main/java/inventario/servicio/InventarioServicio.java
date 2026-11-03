@@ -15,7 +15,6 @@ import inventario.modelo.Proveedor;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.function.Consumer;
 
 /**
@@ -66,10 +65,6 @@ public class InventarioServicio {
         return productos.recorridoInorden().filtrar(Producto::estaEnMinimo);
     }
 
-    public String dibujarArbol() {
-        return productos.dibujar() + "\nAltura: " + productos.altura() + "  |  Productos: " + productos.tamano();
-    }
-
     /** Revisa que el código tenga solo números y que no esté repetido. */
     public void validarCodigoNuevo(String codigo) {
         if (codigo == null || !codigo.matches("\\d{1,20}")) {
@@ -106,7 +101,7 @@ public class InventarioServicio {
         Producto actual = exigirProducto(codigo);
         if (movimientos.buscar(m -> m.getCodigoProducto().equals(codigo)) != null) {
             throw new IllegalArgumentException("No se puede eliminar el producto " + codigo
-                    + " porque tiene movimientos en el historial. Elimine primero sus movimientos.");
+                    + " porque tiene movimientos en el historial.");
         }
         borrarProducto(codigo);
         acciones.apilar(new Accion(Accion.Tipo.ELIMINAR_PRODUCTO,
@@ -123,14 +118,6 @@ public class InventarioServicio {
         movimientos.recorrer(accion);
     }
 
-    public ListaEnlazada<Movimiento> movimientosDeProducto(String codigo) {
-        return movimientos.filtrar(m -> m.getCodigoProducto().equals(codigo));
-    }
-
-    public Movimiento buscarMovimiento(int id) {
-        return movimientos.buscar(m -> m.getId() == id);
-    }
-
     /** Registra una entrada o salida. Devuelve el producto ya actualizado (para revisar la existencia mínima). */
     public Producto registrarMovimiento(String codigo, Movimiento.Tipo tipo, int cantidad, String observacion)
             throws SQLException {
@@ -145,39 +132,7 @@ public class InventarioServicio {
         return productos.buscar(codigo);
     }
 
-    /** Corrige la cantidad de un movimiento y recalcula el stock del producto. */
-    public Producto modificarMovimiento(int id, int nuevaCantidad) throws SQLException {
-        Movimiento actual = exigirMovimiento(id);
-        if (nuevaCantidad <= 0) {
-            throw new IllegalArgumentException("La cantidad del movimiento debe ser mayor que 0.");
-        }
-        Movimiento antes = actual.copia();
-        cambiarCantidadMovimiento(id, nuevaCantidad);
-        acciones.apilar(new Accion(Accion.Tipo.MODIFICAR_MOVIMIENTO,
-                "Modificar movimiento #" + id + " (cantidad " + antes.getCantidad() + " -> " + nuevaCantidad + ")",
-                null, antes));
-        return productos.buscar(antes.getCodigoProducto());
-    }
-
-    /** Borra un movimiento y revierte su efecto en el stock del producto. */
-    public Producto eliminarMovimiento(int id) throws SQLException {
-        Movimiento antes = exigirMovimiento(id).copia();
-        borrarMovimiento(id);
-        acciones.apilar(new Accion(Accion.Tipo.ELIMINAR_MOVIMIENTO,
-                "Eliminar movimiento #" + id + " (" + antes.getTipo() + " de " + antes.getCantidad()
-                        + " del producto " + antes.getCodigoProducto() + ")", null, antes));
-        return productos.buscar(antes.getCodigoProducto());
-    }
-
     // =================================================================== deshacer (pila)
-
-    public Accion ultimaAccion() {
-        return acciones.verTope();
-    }
-
-    public void recorrerAcciones(Consumer<Accion> accion) {
-        acciones.recorrer(accion);
-    }
 
     /**
      * Deshace la última acción ejecutando la operación contraria (también en la BD).
@@ -196,8 +151,6 @@ public class InventarioServicio {
             case MODIFICAR_PRODUCTO -> actualizarProducto(p.copia());
             case ELIMINAR_PRODUCTO -> insertarProducto(p.copia());
             case REGISTRAR_MOVIMIENTO -> borrarMovimiento(m.getId());
-            case MODIFICAR_MOVIMIENTO -> cambiarCantidadMovimiento(m.getId(), m.getCantidad());
-            case ELIMINAR_MOVIMIENTO -> guardarMovimiento(m.copia());
         }
         acciones.desapilar();
         return accion;
@@ -241,29 +194,11 @@ public class InventarioServicio {
         productos.eliminar(codigo);
     }
 
-    /** Inserta un movimiento nuevo (id 0) o vuelve a insertar uno eliminado (con su id original). */
     private void guardarMovimiento(Movimiento m) throws SQLException {
         Producto p = exigirProducto(m.getCodigoProducto());
         int nuevoStock = calcularStock(p, p.getCantidad() + m.efectoEnStock());
-        boolean esNuevo = m.getId() == 0;
         movimientoDAO.insertar(m, nuevoStock);
-        if (esNuevo) {
-            movimientos.agregar(m); // el más reciente va al final: O(1)
-        } else {
-            movimientos.insertarOrdenado(m, Comparator.comparingInt(Movimiento::getId)); // vuelve a su lugar
-        }
-        p.setCantidad(nuevoStock);
-    }
-
-    private void cambiarCantidadMovimiento(int id, int nuevaCantidad) throws SQLException {
-        Movimiento actual = exigirMovimiento(id);
-        Producto p = exigirProducto(actual.getCodigoProducto());
-        Movimiento cambiado = actual.copia();
-        cambiado.setCantidad(nuevaCantidad);
-        // se quita el efecto viejo y se aplica el nuevo
-        int nuevoStock = calcularStock(p, p.getCantidad() - actual.efectoEnStock() + cambiado.efectoEnStock());
-        movimientoDAO.actualizarCantidad(cambiado, nuevoStock);
-        movimientos.reemplazar(x -> x.getId() == id, cambiado);
+        movimientos.agregar(m); // el más reciente va al final: O(1)
         p.setCantidad(nuevoStock);
     }
 
@@ -287,7 +222,7 @@ public class InventarioServicio {
     }
 
     private Movimiento exigirMovimiento(int id) {
-        Movimiento m = buscarMovimiento(id);
+        Movimiento m = movimientos.buscar(x -> x.getId() == id);
         if (m == null) {
             throw new IllegalArgumentException("No existe un movimiento con el número " + id + ".");
         }

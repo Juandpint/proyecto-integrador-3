@@ -7,7 +7,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.time.LocalDateTime;
 
 /**
@@ -35,26 +34,17 @@ public class MovimientoDAO {
         return movimientos;
     }
 
-    /**
-     * Inserta el movimiento y deja el stock del producto en "nuevoStock".
-     * Si el movimiento tiene id 0, MySQL le asigna uno nuevo; si ya tiene id (al deshacer
-     * una eliminación) se vuelve a insertar con el mismo id. En ambos casos el id queda en m.
-     */
+    /** Inserta el movimiento y deja el stock del producto en "nuevoStock". MySQL le asigna el id, que queda en m. */
     public void insertar(Movimiento m, int nuevoStock) throws SQLException {
-        String sql = "INSERT INTO movimiento (id, codigo_producto, tipo, cantidad, fecha, observacion) "
-                   + "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO movimiento (codigo_producto, tipo, cantidad, fecha, observacion) "
+                   + "VALUES (?, ?, ?, ?, ?)";
         ConexionBD.enTransaccion(c -> {
             try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                if (m.getId() == 0) {
-                    ps.setNull(1, Types.INTEGER); // NULL en un AUTO_INCREMENT = id nuevo
-                } else {
-                    ps.setInt(1, m.getId());
-                }
-                ps.setString(2, m.getCodigoProducto());
-                ps.setString(3, m.getTipo().name());
-                ps.setInt(4, m.getCantidad());
-                ps.setObject(5, m.getFecha());
-                ps.setString(6, m.getObservacion());
+                ps.setString(1, m.getCodigoProducto());
+                ps.setString(2, m.getTipo().name());
+                ps.setInt(3, m.getCantidad());
+                ps.setObject(4, m.getFecha());
+                ps.setString(5, m.getObservacion());
                 ps.executeUpdate();
                 try (ResultSet llaves = ps.getGeneratedKeys()) {
                     if (llaves.next()) {
@@ -66,19 +56,7 @@ public class MovimientoDAO {
         });
     }
 
-    /** Cambia la cantidad del movimiento y deja el stock del producto en "nuevoStock". */
-    public void actualizarCantidad(Movimiento m, int nuevoStock) throws SQLException {
-        ConexionBD.enTransaccion(c -> {
-            try (PreparedStatement ps = c.prepareStatement("UPDATE movimiento SET cantidad = ? WHERE id = ?")) {
-                ps.setInt(1, m.getCantidad());
-                ps.setInt(2, m.getId());
-                ps.executeUpdate();
-            }
-            actualizarStock(c, m.getCodigoProducto(), nuevoStock);
-        });
-    }
-
-    /** Borra el movimiento y deja el stock del producto en "nuevoStock". */
+    /** Borra el movimiento (al deshacer su registro) y deja el stock del producto en "nuevoStock". */
     public void eliminar(Movimiento m, int nuevoStock) throws SQLException {
         ConexionBD.enTransaccion(c -> {
             try (PreparedStatement ps = c.prepareStatement("DELETE FROM movimiento WHERE id = ?")) {

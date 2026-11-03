@@ -33,14 +33,9 @@ public class MenuConsola {
                     case 4 -> eliminarProducto();
                     case 5 -> listarProductos();
                     case 6 -> productosEnMinimo();
-                    case 7 -> System.out.println(servicio.dibujarArbol());
-                    case 8 -> registrarMovimiento();
-                    case 9 -> verHistorial();
-                    case 10 -> movimientosDeProducto();
-                    case 11 -> modificarMovimiento();
-                    case 12 -> eliminarMovimiento();
-                    case 13 -> deshacer();
-                    case 14 -> verPila();
+                    case 7 -> registrarMovimiento();
+                    case 8 -> verHistorial();
+                    case 9 -> deshacer();
                     case 0 -> System.out.println("Hasta luego.");
                     default -> System.out.println("Opción no válida.");
                 }
@@ -64,16 +59,11 @@ public class MenuConsola {
         System.out.println("   4. Eliminar producto");
         System.out.println("   5. Listar productos (recorrido inorden)");
         System.out.println("   6. Productos en existencia mínima");
-        System.out.println("   7. Ver forma del árbol AVL");
         System.out.println(" MOVIMIENTOS (lista enlazada)");
-        System.out.println("   8. Registrar entrada o salida");
-        System.out.println("   9. Ver historial de movimientos");
-        System.out.println("  10. Buscar movimientos de un producto");
-        System.out.println("  11. Modificar cantidad de un movimiento");
-        System.out.println("  12. Eliminar movimiento");
+        System.out.println("   7. Registrar entrada o salida");
+        System.out.println("   8. Ver historial de movimientos");
         System.out.println(" DESHACER (pila)");
-        System.out.println("  13. Deshacer última acción");
-        System.out.println("  14. Ver acciones que se pueden deshacer");
+        System.out.println("   9. Deshacer última acción");
         System.out.println("   0. Salir");
     }
 
@@ -145,7 +135,7 @@ public class MenuConsola {
             return;
         }
         servicio.eliminarProducto(codigo);
-        System.out.println("Producto eliminado. (Se puede deshacer con la opción 13)");
+        System.out.println("Producto eliminado. (Se puede deshacer con la opción 9)");
     }
 
     private void listarProductos() {
@@ -219,49 +209,6 @@ public class MenuConsola {
         servicio.recorrerMovimientos(System.out::println);
     }
 
-    private void movimientosDeProducto() {
-        String codigo = leerTexto("Código del producto: ");
-        ListaEnlazada<Movimiento> lista = servicio.movimientosDeProducto(codigo);
-        if (lista.estaVacia()) {
-            System.out.println("No hay movimientos del producto " + codigo + ".");
-            return;
-        }
-        lista.recorrer(System.out::println);
-    }
-
-    private void modificarMovimiento() throws SQLException {
-        int id = leerEntero("Número (#) del movimiento: ");
-        Movimiento m = servicio.buscarMovimiento(id);
-        if (m == null) {
-            System.out.println("No existe un movimiento con el número " + id + ".");
-            return;
-        }
-        System.out.println(m);
-        int cantidad = leerEntero("Nueva cantidad: ");
-        Producto actualizado = servicio.modificarMovimiento(id, cantidad);
-        System.out.println("Movimiento modificado. Existencias de " + actualizado.getCodigo() + ": "
-                + actualizado.getCantidad());
-        avisarSiEstaEnMinimo(actualizado);
-    }
-
-    private void eliminarMovimiento() throws SQLException {
-        int id = leerEntero("Número (#) del movimiento a eliminar: ");
-        Movimiento m = servicio.buscarMovimiento(id);
-        if (m == null) {
-            System.out.println("No existe un movimiento con el número " + id + ".");
-            return;
-        }
-        System.out.println(m);
-        if (!confirmar("¿Eliminarlo? Se revertirá su efecto en las existencias (s/n): ")) {
-            System.out.println("Cancelado.");
-            return;
-        }
-        Producto actualizado = servicio.eliminarMovimiento(id);
-        System.out.println("Movimiento eliminado. Existencias de " + actualizado.getCodigo() + ": "
-                + actualizado.getCantidad());
-        avisarSiEstaEnMinimo(actualizado);
-    }
-
     // =================================================================== pila
 
     private void deshacer() throws SQLException {
@@ -271,17 +218,6 @@ public class MenuConsola {
         } else {
             System.out.println("Deshecho: " + accion.getDescripcion());
         }
-    }
-
-    private void verPila() {
-        Accion tope = servicio.ultimaAccion();
-        if (tope == null) {
-            System.out.println("No hay acciones para deshacer (la pila está vacía).");
-            return;
-        }
-        System.out.println("Tope de la pila (lo próximo que se deshace): " + tope);
-        System.out.println("--- Pila, de la más reciente a la más antigua ---");
-        servicio.recorrerAcciones(a -> System.out.println("   " + a));
     }
 
     // =================================================================== lectura de datos
