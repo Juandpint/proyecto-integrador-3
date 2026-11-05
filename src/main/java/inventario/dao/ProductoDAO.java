@@ -1,4 +1,4 @@
-package inventario.dao;
+    package inventario.dao;
 
 import inventario.estructuras.ListaEnlazada;
 import inventario.modelo.Producto;

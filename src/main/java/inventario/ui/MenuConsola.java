@@ -4,6 +4,7 @@ import inventario.estructuras.ListaEnlazada;
 import inventario.modelo.Accion;
 import inventario.modelo.Movimiento;
 import inventario.modelo.Producto;
+import inventario.servicio.CalculoIntegral;
 import inventario.servicio.InventarioServicio;
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -75,7 +76,7 @@ public class MenuConsola {
         servicio.validarCodigoNuevo(codigo); // avisa antes de pedir el resto de datos
         String nombre = leerTexto("Nombre: ");
         int cantidad = leerEntero("Cantidad inicial: ");
-        int minimo = leerEntero("Existencia mínima: ");
+        int minimo = leerEntero("Existencia mínima manual (se usa si no hay historial): ");
         BigDecimal precio = leerPrecio("Precio: ");
         System.out.println("Categorías:");
         servicio.getCategorias().recorrer(c -> System.out.println("   " + c));
@@ -111,7 +112,7 @@ public class MenuConsola {
         System.out.println("Escriba el nuevo valor o presione Enter para dejarlo igual.");
         System.out.println("(El código no se puede cambiar y la cantidad cambia solo con entradas y salidas.)");
         String nombre = leerTextoOpcional("Nombre [" + actual.getNombre() + "]: ", actual.getNombre());
-        int minimo = leerEnteroOpcional("Existencia mínima [" + actual.getMinimo() + "]: ", actual.getMinimo());
+        int minimo = leerEnteroOpcional("Existencia mínima manual [" + actual.getMinimo() + "]: ", actual.getMinimo());
         BigDecimal precio = leerPrecioOpcional("Precio [" + actual.getPrecio() + "]: ", actual.getPrecio());
         int idCategoria = leerEnteroOpcional("Categoría [" + actual.getIdCategoria() + " - "
                 + servicio.nombreCategoria(actual.getIdCategoria()) + "]: ", actual.getIdCategoria());
@@ -145,7 +146,14 @@ public class MenuConsola {
             return;
         }
         System.out.println("--- Productos ordenados por código (" + lista.tamano() + ") ---");
-        lista.recorrer(System.out::println);
+        lista.recorrer(p -> System.out.println(linea(p)));
+    }
+
+    /** Una línea por producto: sus datos, el mínimo calculado (o "-" si no hay historial) y la alerta. */
+    private String linea(Producto p) {
+        CalculoIntegral.Resultado calculo = servicio.calcularMinimo(p);
+        return p + String.format("  calculado: %4s", calculo == null ? "-" : calculo.minimo())
+                + (servicio.estaEnMinimo(p) ? "  << REPONER" : "");
     }
 
     private void productosEnMinimo() {
@@ -155,24 +163,43 @@ public class MenuConsola {
             return;
         }
         System.out.println("--- Productos que hay que reponer (" + lista.tamano() + ") ---");
-        lista.recorrer(p -> System.out.println(p + "  proveedor: " + servicio.nombreProveedor(p.getIdProveedor())));
+        lista.recorrer(p -> System.out.println(linea(p) + "  proveedor: " + servicio.nombreProveedor(p.getIdProveedor())));
     }
 
     private void mostrarDetalle(Producto p) {
         System.out.println("Código:     " + p.getCodigo());
         System.out.println("Nombre:     " + p.getNombre());
         System.out.println("Cantidad:   " + p.getCantidad());
-        System.out.println("Mínimo:     " + p.getMinimo());
         System.out.println("Precio:     $" + p.getPrecio());
         System.out.println("Categoría:  " + servicio.nombreCategoria(p.getIdCategoria()));
         System.out.println("Proveedor:  " + servicio.nombreProveedor(p.getIdProveedor()));
+        mostrarCalculoMinimo(p);
         avisarSiEstaEnMinimo(p);
     }
 
+    /** Muestra paso a paso cómo se calculó la existencia mínima. */
+    private void mostrarCalculoMinimo(Producto p) {
+        CalculoIntegral.Resultado c = servicio.calcularMinimo(p);
+        if (c == null) {
+            System.out.println("Mínimo:     " + p.getMinimo() + " (manual: no hay salidas recientes para calcularlo)");
+            return;
+        }
+        StringBuilder salidas = new StringBuilder();
+        for (double y : c.salidasPorDia()) {
+            salidas.append(salidas.length() == 0 ? "" : ", ").append((int) y);
+        }
+        System.out.println("Mínimo:     " + c.minimo() + " calculado (el manual es " + p.getMinimo() + ")");
+        System.out.printf("  1. Simpson 1/3, salidas de los últimos %d días (h = 1): [%s]%n", c.diasVentana(), salidas);
+        System.out.printf("     consumo mientras llega el pedido = %.2f unidades%n", c.consumoSimpson());
+        System.out.printf("  2. Fracciones parciales, demanda promedio %.2f und/día:%n", c.demandaPromedio());
+        System.out.printf("     pedidos acumulados en un pico = %.2f unidades%n", c.colaPedidos());
+        System.out.printf("  mínimo = techo(%.2f + %.2f) = %d%n", c.consumoSimpson(), c.colaPedidos(), c.minimo());
+    }
+
     private void avisarSiEstaEnMinimo(Producto p) {
-        if (p != null && p.estaEnMinimo()) {
+        if (p != null && servicio.estaEnMinimo(p)) {
             System.out.println("[ALERTA] El producto " + p.getCodigo() + " (" + p.getNombre() + ") tiene "
-                    + p.getCantidad() + " unidades y su mínimo es " + p.getMinimo() + ". Hay que reponer.");
+                    + p.getCantidad() + " unidades y su mínimo es " + servicio.minimoEfectivo(p) + ". Hay que reponer.");
         }
     }
 

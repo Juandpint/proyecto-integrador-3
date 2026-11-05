@@ -8,7 +8,7 @@ public class Producto {
     private final String codigo; // llave del AVL: por eso no se puede modificar
     private String nombre;
     private int cantidad;
-    private int minimo;
+    private int minimo; // mínimo manual: se usa solo si no hay historial para calcularlo (ver InventarioServicio)
     private BigDecimal precio;
     private int idCategoria;
     private int idProveedor;
@@ -29,11 +29,6 @@ public class Producto {
         return new Producto(codigo, nombre, cantidad, minimo, precio, idCategoria, idProveedor);
     }
 
-    /** true si hay que reponer: la cantidad es igual o menor que la existencia mínima. */
-    public boolean estaEnMinimo() {
-        return cantidad <= minimo;
-    }
-
     public String getCodigo() { return codigo; }
     public String getNombre() { return nombre; }
     public int getCantidad() { return cantidad; }
@@ -51,7 +46,7 @@ public class Producto {
 
     @Override
     public String toString() {
-        return String.format("%-6s %-30s cant: %4d  mín: %4d  $%,12.2f%s",
-                codigo, nombre, cantidad, minimo, precio, estaEnMinimo() ? "  << REPONER" : "");
+        return String.format("%-6s %-30s cant: %4d  mín. manual: %4d  $%,12.2f",
+                codigo, nombre, cantidad, minimo, precio);
     }
 }

@@ -16,10 +16,13 @@ CREATE TABLE categoria (
     nombre VARCHAR(50) NOT NULL UNIQUE
 );
 
+-- tiempo_entrega_dias: lo que tarda el proveedor en traer un pedido (L). Se usa para calcular la existencia mínima.
 CREATE TABLE proveedor (
-    id       INT AUTO_INCREMENT PRIMARY KEY,
-    nombre   VARCHAR(100) NOT NULL,
-    telefono VARCHAR(20)
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    nombre              VARCHAR(100) NOT NULL,
+    telefono            VARCHAR(20),
+    tiempo_entrega_dias INT          NOT NULL DEFAULT 4,
+    CONSTRAINT chk_proveedor_entrega CHECK (tiempo_entrega_dias > 0)
 );
 
 -- Una categoría y un proveedor tienen muchos productos (1:N)

@@ -11,10 +11,12 @@ public class ProveedorDAO {
 
     public ListaEnlazada<Proveedor> listar() throws SQLException {
         ListaEnlazada<Proveedor> proveedores = new ListaEnlazada<>();
-        try (PreparedStatement ps = ConexionBD.obtener().prepareStatement("SELECT id, nombre, telefono FROM proveedor ORDER BY id");
+        String sql = "SELECT id, nombre, telefono, tiempo_entrega_dias FROM proveedor ORDER BY id";
+        try (PreparedStatement ps = ConexionBD.obtener().prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                proveedores.agregar(new Proveedor(rs.getInt("id"), rs.getString("nombre"), rs.getString("telefono")));
+                proveedores.agregar(new Proveedor(rs.getInt("id"), rs.getString("nombre"), rs.getString("telefono"),
+                        rs.getInt("tiempo_entrega_dias")));
             }
         }
         return proveedores;

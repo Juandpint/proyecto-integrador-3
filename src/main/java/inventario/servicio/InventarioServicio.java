@@ -14,6 +14,7 @@ import inventario.modelo.Producto;
 import inventario.modelo.Proveedor;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.function.Consumer;
 
@@ -62,7 +63,31 @@ public class InventarioServicio {
     }
 
     public ListaEnlazada<Producto> productosEnMinimo() {
-        return productos.recorridoInorden().filtrar(Producto::estaEnMinimo);
+        return productos.recorridoInorden().filtrar(this::estaEnMinimo);
+    }
+
+    // =================================================================== existencia mínima (cálculo integral)
+    // Se calcula cada vez que se pide (no se guarda), porque cambia con cada salida nueva.
+
+    /** Cálculo integral de la existencia mínima, o null si el producto no tiene salidas recientes. */
+    public CalculoIntegral.Resultado calcularMinimo(Producto p) {
+        Proveedor proveedor = proveedores.buscar(x -> x.getId() == p.getIdProveedor());
+        if (proveedor == null) {
+            return null;
+        }
+        return CalculoIntegral.existenciaMinima(movimientos, p.getCodigo(), proveedor.getTiempoEntregaDias(),
+                LocalDate.now());
+    }
+
+    /** El mínimo que usan las alertas: el calculado o, si no hay historial, el manual. */
+    public int minimoEfectivo(Producto p) {
+        CalculoIntegral.Resultado calculo = calcularMinimo(p);
+        return calculo == null ? p.getMinimo() : calculo.minimo();
+    }
+
+    /** true si hay que reponer: la cantidad es igual o menor que la existencia mínima. */
+    public boolean estaEnMinimo(Producto p) {
+        return p.getCantidad() <= minimoEfectivo(p);
     }
 
     /** Revisa que el código tenga solo números y que no esté repetido. */
