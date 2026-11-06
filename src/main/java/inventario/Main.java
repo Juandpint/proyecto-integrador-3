@@ -3,12 +3,14 @@ package inventario;
 import inventario.dao.ConexionBD;
 import inventario.servicio.InventarioServicio;
 import inventario.ui.MenuConsola;
+import inventario.ui.VentanaPrincipal;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.Properties;
+import javax.swing.SwingUtilities;
 
 public class Main {
 
@@ -40,10 +42,23 @@ public class Main {
             return;
         }
 
-        // 3. Cargar los registros de la BD en las estructuras y abrir el menú
+        // 3. Cargar los registros de la BD en las estructuras
+        InventarioServicio servicio = new InventarioServicio();
         try {
-            InventarioServicio servicio = new InventarioServicio();
             servicio.cargarDesdeBD();
+        } catch (SQLException e) {
+            System.out.println("Error al cargar los datos: " + e.getMessage());
+            ConexionBD.cerrar();
+            return;
+        }
+
+        // 4. Abrir la ventana (por defecto) o el menú de consola (con el argumento --consola)
+        if (args.length == 0 || !args[0].equals("--consola")) {
+            VentanaPrincipal.aplicarTema();
+            SwingUtilities.invokeLater(() -> new VentanaPrincipal(servicio).setVisible(true)); // la ventana cierra la conexión
+            return;
+        }
+        try {
             System.out.println("Cargados " + servicio.cantidadProductos() + " productos (árbol AVL) y "
                     + servicio.cantidadMovimientos() + " movimientos (lista enlazada) desde la base de datos.");
             int enMinimo = servicio.productosEnMinimo().tamano();
@@ -51,8 +66,6 @@ public class Main {
                 System.out.println("[ALERTA] Hay " + enMinimo + " productos en existencia mínima (opción 6).");
             }
             new MenuConsola(servicio).iniciar();
-        } catch (SQLException e) {
-            System.out.println("Error al cargar los datos: " + e.getMessage());
         } finally {
             ConexionBD.cerrar();
         }

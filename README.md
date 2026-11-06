@@ -17,7 +17,7 @@
 
 ## b. Descripción
 
-Muchos almacenes pequeños llevan el inventario a mano. Así es difícil encontrar un producto, mantener las existencias al día y darse cuenta a tiempo de que algo se está acabando, y eso genera sobrecompras y faltantes. Este prototipo es una aplicación de consola en Java que:
+Muchos almacenes pequeños llevan el inventario a mano. Así es difícil encontrar un producto, mantener las existencias al día y darse cuenta a tiempo de que algo se está acabando, y eso genera sobrecompras y faltantes. Este prototipo es una aplicación de escritorio en Java (ventana Swing en verde y blanco, con un menú de consola opcional) que:
 - registra, busca, modifica y elimina productos por código usando un **árbol AVL**,
 - guarda el historial de entradas y salidas en una **lista enlazada**,
 - permite deshacer las últimas acciones con una **pila**,
@@ -64,12 +64,13 @@ db.clave=su_clave
 `config.properties` no se sube al repositorio, porque está en `.gitignore`.
 
 **3. Ejecutar.** Hay dos formas:
-- **NetBeans:** *File → Open Project*, elija la carpeta del proyecto (tiene el ícono de Maven) y presione **Run** (F6). El menú aparece en la ventana *Output*, y ahí mismo se escriben las opciones.
+- **NetBeans:** *File → Open Project*, elija la carpeta del proyecto (tiene el ícono de Maven) y presione **Run** (F6). Se abre la ventana del inventario.
 - **Consola,** desde la carpeta del proyecto:
   ```
   mvn package
   java -jar target/inventario-jar-with-dependencies.jar
   ```
+  Para usar el menú de texto en lugar de la ventana, agregue `--consola` al final del comando.
 
 Si el programa no encuentra `config.properties` o no logra conectarse a MySQL, muestra un mensaje que dice qué revisar.
 
@@ -90,7 +91,7 @@ Las tres estructuras están hechas con clases y nodos propios. No usan las colec
 - Modificar un elemento del medio no es una operación propia de una pila. Por eso la pila solo tiene apilar, ver el tope, desapilar y recorrer.
 - Deshacer también escribe en la base de datos. La pila empieza vacía cada vez que se abre el programa.
 
-**Paquetes** (`src/main/java/inventario/`): `modelo` (entidades), `estructuras` (AVL, lista y pila), `dao` (el único lugar con SQL, todo con `PreparedStatement`), `servicio` (une estructuras y BD, maneja deshacer y, en `CalculoIntegral`, calcula la existencia mínima) y `ui` (menú).
+**Paquetes** (`src/main/java/inventario/`): `modelo` (entidades), `estructuras` (AVL, lista y pila), `dao` (el único lugar con SQL, todo con `PreparedStatement`), `servicio` (une estructuras y BD, maneja deshacer y, en `CalculoIntegral`, calcula la existencia mínima) y `ui` (ventana `VentanaPrincipal` y menú `MenuConsola`).
 
 ## e. Existencia mínima con cálculo integral
 
