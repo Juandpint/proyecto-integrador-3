@@ -1,11 +1,13 @@
 package inventario.ui;
 
 import inventario.dao.ConexionBD;
+import inventario.estructuras.ListaEnlazada;
 import inventario.modelo.Accion;
 import inventario.modelo.Categoria;
 import inventario.modelo.Movimiento;
 import inventario.modelo.Producto;
 import inventario.modelo.Proveedor;
+import inventario.servicio.CalculoIntegral;
 import inventario.servicio.InventarioServicio;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -51,7 +53,9 @@ public class VentanaPrincipal extends JFrame {
 
     private final InventarioServicio servicio;
     private final DefaultTableModel modeloProductos = tablaSoloLectura(
-            "Código", "Nombre", "Cantidad", "Precio", "Categoría", "Proveedor");
+            "Código", "Nombre", "Cantidad", "Mínimo", "Estado", "Precio", "Categoría", "Proveedor");
+    private final DefaultTableModel modeloMinimo = tablaSoloLectura(
+            "Código", "Nombre", "Cantidad", "Mínimo", "Cómo se obtuvo", "Proveedor");
     private final DefaultTableModel modeloMovimientos = tablaSoloLectura(
             "#", "Fecha", "Código", "Tipo", "Cantidad", "Observación");
     private final JTable tablaProductos = new JTable(modeloProductos);
@@ -137,7 +141,7 @@ public class VentanaPrincipal extends JFrame {
         tablaProductos.setRowHeight(24);
         tablaProductos.setFillsViewportHeight(true);
         tablaProductos.getColumnModel().getColumn(1).setPreferredWidth(220); // nombre
-        tablaProductos.getColumnModel().getColumn(5).setPreferredWidth(160); // proveedor
+        tablaProductos.getColumnModel().getColumn(7).setPreferredWidth(160); // proveedor
         tablaProductos.getTableHeader().setBackground(VERDE);
         tablaProductos.getTableHeader().setForeground(BLANCO);
         tablaProductos.addMouseListener(new MouseAdapter() {
@@ -155,8 +159,24 @@ public class VentanaPrincipal extends JFrame {
         tablaMovimientos.getTableHeader().setBackground(VERDE);
         tablaMovimientos.getTableHeader().setForeground(BLANCO);
 
+        JTable tablaMinimo = new JTable(modeloMinimo);
+        tablaMinimo.setRowHeight(24);
+        tablaMinimo.setFillsViewportHeight(true);
+        tablaMinimo.getTableHeader().setBackground(VERDE);
+        tablaMinimo.getTableHeader().setForeground(BLANCO);
+        tablaMinimo.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int fila = tablaMinimo.getSelectedRow();
+                if (e.getClickCount() == 2 && fila >= 0) {
+                    mostrarDetalle(servicio.buscarProducto((String) modeloMinimo.getValueAt(fila, 0)));
+                }
+            }
+        });
+
         JTabbedPane pestanas = new JTabbedPane();
         pestanas.addTab("Productos (recorrido inorden)", new JScrollPane(tablaProductos));
+        pestanas.addTab("Existencia mínima (reponer)", new JScrollPane(tablaMinimo));
         pestanas.addTab("Historial de movimientos", new JScrollPane(tablaMovimientos));
         return pestanas;
     }
@@ -200,14 +220,22 @@ public class VentanaPrincipal extends JFrame {
     private void refrescar() {
         modeloProductos.setRowCount(0);
         servicio.listarProductos().recorrer(p -> modeloProductos.addRow(new Object[]{p.getCodigo(), p.getNombre(),
-                p.getCantidad(), String.format("$%,.2f", p.getPrecio()),
+                p.getCantidad(), servicio.minimoEfectivo(p), servicio.estaEnMinimo(p) ? "REPONER" : "OK",
+                String.format("$%,.2f", p.getPrecio()),
                 servicio.nombreCategoria(p.getIdCategoria()), servicio.nombreProveedor(p.getIdProveedor())}));
+        modeloMinimo.setRowCount(0);
+        ListaEnlazada<Producto> enMinimo = servicio.productosEnMinimo();
+        enMinimo.recorrer(p -> modeloMinimo.addRow(new Object[]{p.getCodigo(), p.getNombre(), p.getCantidad(),
+                servicio.minimoEfectivo(p),
+                servicio.calcularMinimo(p) == null ? "Manual (sin salidas recientes)" : "Cálculo integral",
+                servicio.nombreProveedor(p.getIdProveedor())}));
         modeloMovimientos.setRowCount(0);
         servicio.recorrerMovimientos(m -> modeloMovimientos.insertRow(0, new Object[]{m.getId(),
                 m.getFecha().format(FECHA), m.getCodigoProducto(), m.getTipo(), m.getCantidad(),
                 m.getObservacion() == null ? "" : m.getObservacion()})); // el más reciente queda arriba
         estado.setText(servicio.cantidadProductos() + " productos (árbol AVL)   ·   "
-                + servicio.cantidadMovimientos() + " movimientos (lista enlazada)");
+                + servicio.cantidadMovimientos() + " movimientos (lista enlazada)"
+                + (enMinimo.estaVacia() ? "" : "   ·   ALERTA: " + enMinimo.tamano() + " productos por reponer"));
     }
 
     private String codigoSeleccionado() {
@@ -221,21 +249,22 @@ public class VentanaPrincipal extends JFrame {
         JTextField codigo = new JTextField();
         JTextField nombre = new JTextField();
         JTextField cantidad = new JTextField("0");
+        JTextField minimo = new JTextField("0");
         JTextField precio = new JTextField();
         JComboBox<Categoria> categoria = new JComboBox<>();
         servicio.getCategorias().recorrer(categoria::addItem);
         JComboBox<Proveedor> proveedor = new JComboBox<>();
         servicio.getProveedores().recorrer(proveedor::addItem);
         if (!formulario("Registrar producto", "Código (solo números):", codigo, "Nombre:", nombre,
-                "Cantidad inicial:", cantidad, "Precio:", precio,
+                "Cantidad inicial:", cantidad, "Mínimo manual (si no hay historial):", minimo, "Precio:", precio,
                 "Categoría:", categoria, "Proveedor:", proveedor)) {
             return;
         }
         Producto p = new Producto(codigo.getText().trim(), obligatorio(nombre, "nombre"),
-                entero(cantidad, "La cantidad"), 0, precio(precio), // existencia mínima: aún no se usa en la ventana
+                entero(cantidad, "La cantidad"), entero(minimo, "El mínimo"), precio(precio),
                 ((Categoria) categoria.getSelectedItem()).getId(), ((Proveedor) proveedor.getSelectedItem()).getId());
         servicio.crearProducto(p);
-        informar("Producto " + p.getCodigo() + " registrado.");
+        informar("Producto " + p.getCodigo() + " registrado." + alerta(servicio.buscarProducto(p.getCodigo())));
     }
 
     private void buscarProducto() {
@@ -263,6 +292,7 @@ public class VentanaPrincipal extends JFrame {
             return;
         }
         JTextField nombre = new JTextField(actual.getNombre());
+        JTextField minimo = new JTextField(String.valueOf(actual.getMinimo()));
         JTextField precio = new JTextField(actual.getPrecio().toPlainString());
         JComboBox<Categoria> categoria = new JComboBox<>();
         servicio.getCategorias().recorrer(categoria::addItem);
@@ -271,14 +301,15 @@ public class VentanaPrincipal extends JFrame {
         servicio.getProveedores().recorrer(proveedor::addItem);
         elegir(proveedor, p -> p.getId() == actual.getIdProveedor());
         if (!formulario("Modificar producto " + actual.getCodigo(), "Nombre:", nombre,
+                "Mínimo manual (si no hay historial):", minimo,
                 "Precio:", precio, "Categoría:", categoria, "Proveedor:", proveedor)) {
             return;
         }
         Producto cambios = new Producto(actual.getCodigo(), obligatorio(nombre, "nombre"), actual.getCantidad(),
-                actual.getMinimo(), precio(precio),
+                entero(minimo, "El mínimo"), precio(precio),
                 ((Categoria) categoria.getSelectedItem()).getId(), ((Proveedor) proveedor.getSelectedItem()).getId());
         servicio.modificarProducto(cambios);
-        informar("Producto " + actual.getCodigo() + " modificado.");
+        informar("Producto " + actual.getCodigo() + " modificado." + alerta(servicio.buscarProducto(actual.getCodigo())));
     }
 
     private void eliminarProducto() throws SQLException {
@@ -311,7 +342,7 @@ public class VentanaPrincipal extends JFrame {
         return p;
     }
 
-    /** Muestra los datos del producto. */
+    /** Muestra los datos del producto y, paso a paso, cómo se obtuvo su existencia mínima. */
     private void mostrarDetalle(Producto p) {
         StringBuilder s = new StringBuilder();
         s.append("Código:     ").append(p.getCodigo()).append('\n');
@@ -320,6 +351,22 @@ public class VentanaPrincipal extends JFrame {
         s.append("Precio:     $").append(p.getPrecio()).append('\n');
         s.append("Categoría:  ").append(servicio.nombreCategoria(p.getIdCategoria())).append('\n');
         s.append("Proveedor:  ").append(servicio.nombreProveedor(p.getIdProveedor())).append('\n');
+        CalculoIntegral.Resultado c = servicio.calcularMinimo(p);
+        if (c == null) {
+            s.append("Mínimo:     ").append(p.getMinimo()).append(" (manual: no hay salidas recientes para calcularlo)\n");
+        } else {
+            StringBuilder salidas = new StringBuilder();
+            for (double y : c.salidasPorDia()) {
+                salidas.append(salidas.length() == 0 ? "" : ", ").append((int) y);
+            }
+            s.append("Mínimo:     ").append(c.minimo()).append(" calculado (el manual es ").append(p.getMinimo()).append(")\n");
+            s.append(String.format("  1. Simpson 1/3, salidas de los últimos %d días (h = 1): [%s]%n", c.diasVentana(), salidas));
+            s.append(String.format("     consumo mientras llega el pedido = %.2f unidades%n", c.consumoSimpson()));
+            s.append(String.format("  2. Fracciones parciales, demanda promedio %.2f und/día:%n", c.demandaPromedio()));
+            s.append(String.format("     pedidos acumulados en un pico = %.2f unidades%n", c.colaPedidos()));
+            s.append(String.format("  mínimo = techo(%.2f + %.2f) = %d%n", c.consumoSimpson(), c.colaPedidos(), c.minimo()));
+        }
+        s.append(alerta(p).trim());
         JTextArea texto = new JTextArea(s.toString());
         texto.setEditable(false);
         texto.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
@@ -340,7 +387,7 @@ public class VentanaPrincipal extends JFrame {
         String obs = observacion.getText().trim();
         Producto p = servicio.registrarMovimiento(codigo.getText().trim(), (Movimiento.Tipo) tipo.getSelectedItem(),
                 entero(cantidad, "La cantidad"), obs.isEmpty() ? null : obs);
-        informar("Movimiento registrado. Existencias de " + p.getCodigo() + ": " + p.getCantidad());
+        informar("Movimiento registrado. Existencias de " + p.getCodigo() + ": " + p.getCantidad() + alerta(p));
     }
 
     // =================================================================== pila
@@ -410,6 +457,14 @@ public class VentanaPrincipal extends JFrame {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("El precio debe ser un número, por ejemplo 15000 o 15000.50");
         }
+    }
+
+    /** Texto de alerta si el producto está en su existencia mínima; vacío si no. */
+    private String alerta(Producto p) {
+        return p != null && servicio.estaEnMinimo(p)
+                ? "\n\nALERTA: tiene " + p.getCantidad() + " unidades y su mínimo es " + servicio.minimoEfectivo(p)
+                        + ". Hay que reponer."
+                : "";
     }
 
     private void informar(String mensaje) {
